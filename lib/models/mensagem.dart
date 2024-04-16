@@ -10,9 +10,9 @@ class Mensagem {
   Mensagem.fromMap(Map<String, dynamic> map)
       : id = map["id"],
         mensagem = map["mensagem"],
-        hora = (map['data'] as Timestamp).toDate();
+        hora = (map['hora'] as Timestamp).toDate();
 
   Map<String, dynamic> toMap() {
-    return {"id": id, "mensagem": mensagem, "data": hora};
+    return {"id": id, "mensagem": mensagem, "hora": hora};
   }
 }

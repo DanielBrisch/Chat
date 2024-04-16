@@ -1,5 +1,5 @@
-import 'package:chat/divice.dart';
 import 'package:chat/firebase_options.dart';
+import 'package:chat/models/device.dart';
 import 'package:chat/screens/chat_page.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -15,23 +15,31 @@ void main() async {
   final prefs = await SharedPreferences.getInstance();
   final isFirstTime = prefs.getBool('first_time') ?? true;
 
+  String deviceId;
+
   if (isFirstTime) {
-    Divice divice = Divice(id: const Uuid().v1());
+    deviceId = const Uuid().v1();
+    prefs.setString('device_id', deviceId);
     prefs.setBool('first_time', false);
-    firestore.collection('divice').doc('infoDivice').set(divice.toMap());
+
+    Device device = Device(id: deviceId);
+    firestore.collection('device').doc(deviceId).set(device.toMap());
+  } else {
+    deviceId = prefs.getString('device_id') ?? 'unknown';
   }
 
-  runApp(const MyApp());
+  runApp(MyApp(deviceId: deviceId));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final String deviceId;
+  MyApp({Key? key, required this.deviceId}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
+    return MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: Chat(),
+      home: Chat(deviceId: deviceId),
     );
   }
 }
