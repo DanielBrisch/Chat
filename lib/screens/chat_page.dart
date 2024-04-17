@@ -21,7 +21,6 @@ class _ChatState extends State<Chat> {
 
   @override
   void initState() {
-    messageRight();
     super.initState();
   }
 
@@ -47,40 +46,93 @@ class _ChatState extends State<Chat> {
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(10, 10, 10, 70),
-            child: ListView(
-              children: List.generate(mensagens.length, (index) {
-                Mensagem model = mensagens[index];
-                return Align(
-                  alignment: Alignment.centerRight,
-                  child: Padding(
-                    key: ValueKey<Mensagem>(model),
-                    padding: const EdgeInsets.only(top: 5, bottom: 5),
-                    child: Container(
-                      width: size.width * widthMessage(model),
-                      decoration: const BoxDecoration(
-                          color: Color(0xFF005d4b),
-                          borderRadius: BorderRadius.all(Radius.circular(11))),
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(10, 7, 10, 7),
-                        child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                message(model),
-                                style: const TextStyle(color: Colors.white),
+            child: StreamBuilder<List<Mensagem>>(
+                stream: messagesStream(),
+                builder: (BuildContext context,
+                    AsyncSnapshot<List<Mensagem>> snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
+                  List<Mensagem> mensagens = snapshot.data ?? [];
+
+                  return ListView.builder(
+                      itemCount: mensagens.length,
+                      itemBuilder: (context, index) {
+                        Mensagem model = mensagens[index];
+
+                        if (model.deviceId == widget.deviceId) {
+                          return Align(
+                            alignment: Alignment.centerRight,
+                            child: Padding(
+                              key: ValueKey<Mensagem>(model),
+                              padding: const EdgeInsets.only(top: 5, bottom: 5),
+                              child: Container(
+                                width: size.width * widthMessage(model),
+                                decoration: const BoxDecoration(
+                                    color: Color(0xFF005d4b),
+                                    borderRadius:
+                                        BorderRadius.all(Radius.circular(11))),
+                                child: Padding(
+                                  padding:
+                                      const EdgeInsets.fromLTRB(10, 7, 10, 7),
+                                  child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          message(model),
+                                          style: const TextStyle(
+                                              color: Colors.white),
+                                        ),
+                                        Text(
+                                          DateFormat('HH:mm')
+                                              .format(model.hora),
+                                          style: const TextStyle(
+                                              color: Color(0xFF699c94)),
+                                        ),
+                                      ]),
+                                ),
                               ),
-                              Text(
-                                DateFormat('HH:mm').format(model.hora),
-                                style:
-                                    const TextStyle(color: Color(0xFF699c94)),
+                            ),
+                          );
+                        }
+
+                        return Align(
+                          alignment: Alignment.centerLeft,
+                          child: Padding(
+                            key: ValueKey<Mensagem>(model),
+                            padding: const EdgeInsets.only(top: 5, bottom: 5),
+                            child: Container(
+                              width: size.width * widthMessage(model),
+                              decoration: const BoxDecoration(
+                                  color: Color(0xFF1f2c34),
+                                  borderRadius:
+                                      BorderRadius.all(Radius.circular(11))),
+                              child: Padding(
+                                padding:
+                                    const EdgeInsets.fromLTRB(10, 7, 10, 7),
+                                child: Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        message(model),
+                                        style: const TextStyle(
+                                            color: Colors.white),
+                                      ),
+                                      Text(
+                                        DateFormat('HH:mm').format(model.hora),
+                                        style: const TextStyle(
+                                            color: Color(0xFF699c94)),
+                                      ),
+                                    ]),
                               ),
-                            ]),
-                      ),
-                    ),
-                  ),
-                );
-              }),
-            ),
+                            ),
+                          ),
+                        );
+                      });
+                }),
           ),
           Padding(
             padding: EdgeInsets.only(bottom: size.height * 0.015),
@@ -152,16 +204,15 @@ class _ChatState extends State<Chat> {
                                 Mensagem msg = Mensagem(
                                     id: await metodo(),
                                     mensagem: textController.text,
-                                    hora: now);
+                                    hora: now,
+                                    deviceId: widget.deviceId);
 
                                 firestore
-                                    .collection('device')
-                                    .doc(widget.deviceId)
+                                    .collection('Aplicativo')
+                                    .doc('chat')
                                     .collection('mensagens')
                                     .doc(const Uuid().v1())
                                     .set(msg.toMap());
-
-                                messageRight();
                               },
                               icon: const Icon(Icons.arrow_right_alt_outlined,
                                   color: Colors.black))
@@ -178,23 +229,20 @@ class _ChatState extends State<Chat> {
     );
   }
 
-  messageRight() async {
-    List<Mensagem> temp = [];
-    QuerySnapshot<Map<String, dynamic>> snapshot = await firestore
-        .collection("device")
-        .doc(widget.deviceId)
+  Stream<List<Mensagem>> messagesStream() {
+    return firestore
+        .collection("Aplicativo")
+        .doc('chat')
         .collection('mensagens')
         .orderBy('id', descending: false)
-        .get();
+        .snapshots()
+        .map((snapshot) {
+      var ls =
+          snapshot.docs.map((doc) => Mensagem.fromMap(doc.data())).toList();
 
-    for (var doc in snapshot.docs) {
-      temp.add(Mensagem.fromMap(doc.data()));
-    }
+      ls.sort((a, b) => int.parse(a.id).compareTo(int.parse(b.id)));
 
-    temp.sort((a, b) => int.parse(a.id).compareTo(int.parse(b.id)));
-
-    setState(() {
-      mensagens = temp;
+      return ls;
     });
   }
 

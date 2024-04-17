@@ -1,5 +1,4 @@
 import 'package:chat/firebase_options.dart';
-import 'package:chat/models/device.dart';
 import 'package:chat/screens/chat_page.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -10,7 +9,6 @@ import 'package:uuid/uuid.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  FirebaseFirestore firestore = FirebaseFirestore.instance;
 
   final prefs = await SharedPreferences.getInstance();
   final isFirstTime = prefs.getBool('first_time') ?? true;
@@ -21,9 +19,6 @@ void main() async {
     deviceId = const Uuid().v1();
     prefs.setString('device_id', deviceId);
     prefs.setBool('first_time', false);
-
-    Device device = Device(id: deviceId);
-    firestore.collection('device').doc(deviceId).set(device.toMap());
   } else {
     deviceId = prefs.getString('device_id') ?? 'unknown';
   }
