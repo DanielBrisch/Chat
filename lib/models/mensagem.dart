@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class Mensagem {
-  String id;
+  int id;
   String mensagem;
   DateTime hora;
   String deviceId;

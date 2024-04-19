@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
+import 'dart:math' as math;
 
 class Chat extends StatefulWidget {
   final String deviceId;
@@ -50,10 +51,6 @@ class _ChatState extends State<Chat> {
                 stream: messagesStream(),
                 builder: (BuildContext context,
                     AsyncSnapshot<List<Mensagem>> snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-
                   List<Mensagem> mensagens = snapshot.data ?? [];
 
                   return ListView.builder(
@@ -65,33 +62,48 @@ class _ChatState extends State<Chat> {
                           return Align(
                             alignment: Alignment.centerRight,
                             child: Padding(
-                              key: ValueKey<Mensagem>(model),
-                              padding: const EdgeInsets.only(top: 5, bottom: 5),
-                              child: Container(
-                                width: size.width * widthMessage(model),
-                                decoration: const BoxDecoration(
-                                    color: Color(0xFF005d4b),
-                                    borderRadius:
-                                        BorderRadius.all(Radius.circular(11))),
-                                child: Padding(
-                                  padding:
-                                      const EdgeInsets.fromLTRB(10, 7, 10, 7),
-                                  child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 5),
+                              child: ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  minWidth: 50, // Mínimo que você deseja
+                                  maxWidth: MediaQuery.of(context).size.width *
+                                      0.8, // Máximo que você deseja
+                                ),
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF005d4b),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 8),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.end,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: <Widget>[
                                         Text(
-                                          message(model),
+                                          model.mensagem,
                                           style: const TextStyle(
-                                              color: Colors.white),
+                                              color: Colors.white,
+                                              fontSize: 16),
                                         ),
-                                        Text(
-                                          DateFormat('HH:mm')
-                                              .format(model.hora),
-                                          style: const TextStyle(
-                                              color: Color(0xFF699c94)),
+                                        Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              DateFormat('HH:mm')
+                                                  .format(model.hora),
+                                              style: const TextStyle(
+                                                  color: Color(0xFF699c94),
+                                                  fontSize: 12),
+                                            ),
+                                          ],
                                         ),
-                                      ]),
+                                      ],
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
@@ -101,32 +113,46 @@ class _ChatState extends State<Chat> {
                         return Align(
                           alignment: Alignment.centerLeft,
                           child: Padding(
-                            key: ValueKey<Mensagem>(model),
-                            padding: const EdgeInsets.only(top: 5, bottom: 5),
-                            child: Container(
-                              width: size.width * widthMessage(model),
-                              decoration: const BoxDecoration(
-                                  color: Color(0xFF1f2c34),
-                                  borderRadius:
-                                      BorderRadius.all(Radius.circular(11))),
-                              child: Padding(
-                                padding:
-                                    const EdgeInsets.fromLTRB(10, 7, 10, 7),
-                                child: Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 5),
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                minWidth: 50, // Mínimo que você deseja
+                                maxWidth: MediaQuery.of(context).size.width *
+                                    0.8, // Máximo que você deseja
+                              ),
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF1f2c34),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 8),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: <Widget>[
                                       Text(
-                                        message(model),
+                                        model.mensagem,
                                         style: const TextStyle(
-                                            color: Colors.white),
+                                            color: Colors.white, fontSize: 16),
                                       ),
-                                      Text(
-                                        DateFormat('HH:mm').format(model.hora),
-                                        style: const TextStyle(
-                                            color: Color(0xFF699c94)),
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            DateFormat('HH:mm')
+                                                .format(model.hora),
+                                            style: const TextStyle(
+                                                color: Color(0xFF699c94),
+                                                fontSize: 12),
+                                          ),
+                                        ],
                                       ),
-                                    ]),
+                                    ],
+                                  ),
+                                ),
                               ),
                             ),
                           ),
@@ -190,19 +216,28 @@ class _ChatState extends State<Chat> {
                       child: textController.text.isNotEmpty
                           ? IconButton(
                               onPressed: () async {
-                                Future<String> metodo() async {
-                                  if (mensagens.isNotEmpty) {
-                                    var docData = mensagens.last.id;
-                                    int newId = int.parse(docData);
-                                    newId += 1;
-                                    return newId.toString();
-                                  } else {
-                                    return "1";
-                                  }
+                                final result = await firestore
+                                    .collection("Aplicativo")
+                                    .doc('chat')
+                                    .collection('mensagens')
+                                    .orderBy('id',
+                                        descending:
+                                            true) // Alterado de 'id' para 'nome'
+                                    .limit(1)
+                                    .get();
+
+                                int? numId;
+                                if (result.docs.isEmpty) {
+                                  numId = 1;
+                                } else {
+                                  numId = int.parse(result.docs.first
+                                          .data()['id']
+                                          .toString()) +
+                                      1;
                                 }
 
                                 Mensagem msg = Mensagem(
-                                    id: await metodo(),
+                                    id: numId,
                                     mensagem: textController.text,
                                     hora: now,
                                     deviceId: widget.deviceId);
@@ -240,37 +275,9 @@ class _ChatState extends State<Chat> {
       var ls =
           snapshot.docs.map((doc) => Mensagem.fromMap(doc.data())).toList();
 
-      ls.sort((a, b) => int.parse(a.id).compareTo(int.parse(b.id)));
+      ls.sort((a, b) => a.id.compareTo(b.id));
 
       return ls;
     });
-  }
-
-  double widthMessage(Mensagem model) {
-    double varWidthMessage = 0.20;
-    var num = message(model).length;
-    for (var i = 0; i < num; i++) {
-      varWidthMessage += 0.015;
-      if (varWidthMessage == 0.8) {
-        return varWidthMessage;
-      }
-    }
-
-    return varWidthMessage;
-  }
-
-  String message(Mensagem model) {
-    String msg = model.mensagem;
-    StringBuffer formatedMessage = StringBuffer();
-
-    for (int i = 0; i < msg.length; i++) {
-      formatedMessage.write(msg[i]);
-
-      if ((i + 1) % 30 == 0 && i != msg.length - 1) {
-        formatedMessage.write('\n');
-      }
-    }
-
-    return formatedMessage.toString();
   }
 }
