@@ -1,10 +1,8 @@
 import 'package:chat/models/mensagem.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
-import 'dart:math' as math;
 
 class Chat extends StatefulWidget {
   final String deviceId;
@@ -19,10 +17,27 @@ class _ChatState extends State<Chat> {
   FirebaseFirestore firestore = FirebaseFirestore.instance;
   DateTime now = DateTime.now();
   List<Mensagem> mensagens = [];
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollToBottom() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
   }
 
   @override
@@ -32,7 +47,7 @@ class _ChatState extends State<Chat> {
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          'Person 1',
+          'Person 2',
           style: TextStyle(color: Colors.white),
         ),
         backgroundColor: Colors.black,
@@ -51,9 +66,27 @@ class _ChatState extends State<Chat> {
                 stream: messagesStream(),
                 builder: (BuildContext context,
                     AsyncSnapshot<List<Mensagem>> snapshot) {
-                  List<Mensagem> mensagens = snapshot.data ?? [];
+                  if (snapshot.hasData) {
+                    mensagens = snapshot.data!;
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (_scrollController.hasClients) {
+                        _scrollController.animateTo(
+                          _scrollController.position.maxScrollExtent,
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeOut,
+                        );
+                      }
+                    });
+                  } else if (snapshot.hasError) {
+                    return Text('Erro: ${snapshot.error}');
+                  }
+
+                  if (!snapshot.hasData) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
 
                   return ListView.builder(
+                      controller: _scrollController,
                       itemCount: mensagens.length,
                       itemBuilder: (context, index) {
                         Mensagem model = mensagens[index];
@@ -66,9 +99,9 @@ class _ChatState extends State<Chat> {
                                   horizontal: 10, vertical: 5),
                               child: ConstrainedBox(
                                 constraints: BoxConstraints(
-                                  minWidth: 50, // Mínimo que você deseja
-                                  maxWidth: MediaQuery.of(context).size.width *
-                                      0.8, // Máximo que você deseja
+                                  minWidth: 50,
+                                  maxWidth:
+                                      MediaQuery.of(context).size.width * 0.8,
                                 ),
                                 child: DecoratedBox(
                                   decoration: BoxDecoration(
@@ -110,53 +143,7 @@ class _ChatState extends State<Chat> {
                           );
                         }
 
-                        return Align(
-                          alignment: Alignment.centerLeft,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 5),
-                            child: ConstrainedBox(
-                              constraints: BoxConstraints(
-                                minWidth: 50, // Mínimo que você deseja
-                                maxWidth: MediaQuery.of(context).size.width *
-                                    0.8, // Máximo que você deseja
-                              ),
-                              child: DecoratedBox(
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF1f2c34),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 12, vertical: 8),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.end,
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: <Widget>[
-                                      Text(
-                                        model.mensagem,
-                                        style: const TextStyle(
-                                            color: Colors.white, fontSize: 16),
-                                      ),
-                                      Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Text(
-                                            DateFormat('HH:mm')
-                                                .format(model.hora),
-                                            style: const TextStyle(
-                                                color: Color(0xFF699c94),
-                                                fontSize: 12),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        );
+                        return Container();
                       });
                 }),
           ),
@@ -209,52 +196,58 @@ class _ChatState extends State<Chat> {
                 Align(
                   alignment: Alignment.bottomRight,
                   child: Container(
-                      decoration: const BoxDecoration(
-                        borderRadius: BorderRadius.all(Radius.circular(50)),
-                        color: Colors.white,
-                      ),
-                      child: textController.text.isNotEmpty
-                          ? IconButton(
-                              onPressed: () async {
-                                final result = await firestore
-                                    .collection("Aplicativo")
-                                    .doc('chat')
-                                    .collection('mensagens')
-                                    .orderBy('id',
-                                        descending:
-                                            true) // Alterado de 'id' para 'nome'
-                                    .limit(1)
-                                    .get();
+                    decoration: const BoxDecoration(
+                      borderRadius: BorderRadius.all(Radius.circular(50)),
+                      color: Colors.white,
+                    ),
+                    child: ValueListenableBuilder(
+                      valueListenable: textController,
+                      builder: (context, TextEditingValue value, _) {
+                        return value.text.isNotEmpty
+                            ? IconButton(
+                                onPressed: () async {
+                                  final result = await firestore
+                                      .collection("Aplicativo")
+                                      .doc('chat')
+                                      .collection('mensagens')
+                                      .orderBy('id', descending: true)
+                                      .limit(1)
+                                      .get();
 
-                                int? numId;
-                                if (result.docs.isEmpty) {
-                                  numId = 1;
-                                } else {
-                                  numId = int.parse(result.docs.first
-                                          .data()['id']
-                                          .toString()) +
-                                      1;
-                                }
+                                  int? numId;
+                                  if (result.docs.isEmpty) {
+                                    numId = 1;
+                                  } else {
+                                    numId = int.parse(result.docs.first
+                                            .data()['id']
+                                            .toString()) +
+                                        1;
+                                  }
 
-                                Mensagem msg = Mensagem(
-                                    id: numId,
-                                    mensagem: textController.text,
-                                    hora: now,
-                                    deviceId: widget.deviceId);
+                                  Mensagem msg = Mensagem(
+                                      id: numId,
+                                      mensagem: value.text,
+                                      hora: now,
+                                      deviceId: widget.deviceId);
 
-                                firestore
-                                    .collection('Aplicativo')
-                                    .doc('chat')
-                                    .collection('mensagens')
-                                    .doc(const Uuid().v1())
-                                    .set(msg.toMap());
-                              },
-                              icon: const Icon(Icons.arrow_right_alt_outlined,
-                                  color: Colors.black))
-                          : IconButton(
-                              onPressed: () {},
-                              icon:
-                                  const Icon(Icons.mic, color: Colors.black))),
+                                  firestore
+                                      .collection('Aplicativo')
+                                      .doc('chat')
+                                      .collection('mensagens')
+                                      .doc(const Uuid().v1())
+                                      .set(msg.toMap());
+                                  textController.clear();
+                                },
+                                icon: const Icon(Icons.arrow_right_alt_outlined,
+                                    color: Colors.black))
+                            : IconButton(
+                                onPressed: () {},
+                                icon:
+                                    const Icon(Icons.mic, color: Colors.black),
+                              );
+                      },
+                    ),
+                  ),
                 )
               ],
             ),
